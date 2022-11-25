@@ -1,0 +1,58 @@
+{
+    "type": "object",
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": [
+                "add",
+                "delete",
+                "list"
+            ]
+        },
+        "id": {
+            "type": "string"
+        },
+        "server": {
+            "type": "string"
+        },
+        "scheduledDateTime": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "action": {
+                        "const": "delete"
+                    }
+                }   
+            },
+            "then": {
+                "required": [
+                    "id"
+                ]
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "action": {
+                        "const": "add"
+                    }
+                }   
+            },
+            "then": {
+                "required": [
+                    "server",
+                    "scheduledDateTime"
+                ]
+            }
+        }
+    ],
+    "required": [
+        "action"
+    ],
+    "additionalProperties": false
+}
