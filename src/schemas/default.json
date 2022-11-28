@@ -4,53 +4,35 @@
         "action": {
             "type": "string",
             "enum": [
-                "add",
-                "delete",
-                "list"
+                "set",
+                "get"
             ]
         },
-        "id": {
+        "jobId": {
             "type": "string"
         },
-        "server": {
+        "status": {
             "type": "string"
         },
-        "scheduledDateTime": {
+        "statusDateTime": {
             "type": "string",
             "format": "date-time"
         }
     },
-    "allOf": [
-        {
-            "if": {
-                "properties": {
-                    "action": {
-                        "const": "delete"
-                    }
-                }   
-            },
-            "then": {
-                "required": [
-                    "id"
-                ]
+    "if": {
+        "properties": {
+            "action": {
+                "const": "set"
             }
-        },
-        {
-            "if": {
-                "properties": {
-                    "action": {
-                        "const": "add"
-                    }
-                }   
-            },
-            "then": {
-                "required": [
-                    "server",
-                    "scheduledDateTime"
-                ]
-            }
-        }
-    ],
+        }   
+    },
+    "then": {
+        "required": [
+            "jobId",
+            "status",
+            "statusDateTime"
+        ]
+    },
     "required": [
         "action"
     ],

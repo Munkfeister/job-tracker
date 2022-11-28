@@ -8,8 +8,8 @@ import redis
 
 from jsonschema import validate
 
-from scheduler import Scheduler
 from queue_helper import Queue
+from tracker import Tracker
 
 def send_job(server):
     patching_queue_name = "rhel-patching"
@@ -17,23 +17,20 @@ def send_job(server):
 
 class Main(object):
     
-    scheduler_queue_name = "rhel-patching-scheduler"
+    tracking_queue_name = "rhel-patching.jobtracker"
 
     def __init__(self) -> None:
         print("Loading validation schema...")
         self.payloadSchema = self.get_validation_schema()
 
-        print("Starting Scheduler...")
-        with Scheduler() as self.schedule:
-            self.schedule.start()
+        print("Starting Queue Listener...")
+        self.tracking_queue = Queue(
+            self.tracking_queue_name,
+            self.process_message
+        )
 
-            print("Starting Queue Listener...")
-            self.schedule_queue = Queue(
-                self.scheduler_queue_name,
-                self.process_message
-            )
-
-            self.schedule_queue.start()
+        self.tracker = Tracker()
+        self.tracking_queue.start()
 
     def get_validation_schema(self):
         with open('%s/schemas/default.json' % os.path.dirname(__file__), 'r') as f:
@@ -50,12 +47,13 @@ class Main(object):
             payload = json.loads(body)
 
             try:
-                if payload["action"] == "add":
-                    return_payload = self.schedule.add(send_job, payload["server"], payload["scheduledDateTime"])
-                elif payload["action"] == "delete":
-                    return_payload = self.schedule.delete(payload["id"])
-                elif payload["action"] == "list":
-                    return_payload = self.schedule.list()
+                if payload["action"] == "set":
+                    return_payload = self.tracker.set(payload["jobId"], payload["status"], payload["statusDateTime"])
+                elif payload["action"] == "get":
+                    if "jobId" in payload:
+                        return_payload = self.tracker.get(payload["jobId"])
+                    else:
+                        return_payload = self.tracker.get_all()
                 else:
                     return_payload = { "status": "failed", "message": "Unknown action: " + payload["action"] }
             except redis.exceptions.ConnectionError as err:
@@ -64,11 +62,11 @@ class Main(object):
             return_payload = { "status": "failed", "message": validation_message}
 
         if "status" in return_payload and return_payload["status"] == "failed":
-            self.schedule_queue.reject(False, method_frame.delivery_tag)
+            self.tracking_queue.reject(False, method_frame.delivery_tag)
         elif "status" in return_payload and return_payload["status"] == "retry":
-            self.schedule_queue.reject(False, method_frame.delivery_tag)
+            self.tracking_queue.reject(False, method_frame.delivery_tag)
         else:
-            self.schedule_queue.accept(method_frame.delivery_tag)
+            self.tracking_queue.accept(method_frame.delivery_tag)
         
         print(json.dumps(return_payload, sort_keys=True, indent=4, separators=(',', ': '), default=str))
 
